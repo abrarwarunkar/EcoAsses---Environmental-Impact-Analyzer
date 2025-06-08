@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -13,61 +14,76 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+
 const productInputSchema = z.object({
   productDescription: z.string().min(20).max(2000),
+  productImage: z
+    .custom<FileList>((val) => val instanceof FileList, "Please upload a file")
+    .optional()
+    .refine(
+      (files) => !files || files.length === 0 || files?.[0]?.size <= MAX_FILE_SIZE,
+      `Max image size is 5MB.`
+    )
+    .refine(
+      (files) => !files || files.length === 0 || ACCEPTED_IMAGE_TYPES.includes(files?.[0]?.type),
+      "Only .jpg, .jpeg, .png and .webp formats are supported."
+    ),
 });
 
 export default function EcoAssessPage() {
   const [analysisResult, setAnalysisResult] = useState<AnalyzeProductDescriptionOutput | null>(null);
-  const [derivedScore, setDerivedScore] = useState<number | null>(null);
   const [alternativesResult, setAlternativesResult] = useState<SuggestSustainableAlternativesOutput | null>(null);
   const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
   const [isLoadingAlternatives, setIsLoadingAlternatives] = useState(false);
   const { toast } = useToast();
 
-  const parseScore = (text: string): number | null => {
-    const scoreRegex1 = /Overall Environmental Score:\s*(\d+)\s*\/\s*100/i;
-    const scoreRegex2 = /score\s*(?:is|of|:)\s*(\d+)/i;
-    const scoreRegex3 = /(\d+)\s*out of 100/i;
-
-    let match = text.match(scoreRegex1);
-    if (match && match[1]) return parseInt(match[1], 10);
-    
-    match = text.match(scoreRegex2);
-    if (match && match[1]) return parseInt(match[1], 10);
-
-    match = text.match(scoreRegex3);
-    if (match && match[1]) return parseInt(match[1], 10);
-    
-    // Fallback pseudo-random score if not found in text
-    return 50 + Math.floor(Math.random() * 31) - 15; // Generates a score roughly between 35-80
-  };
-
   const handleAnalyzeProduct = async (values: z.infer<typeof productInputSchema>) => {
     setIsLoadingAnalysis(true);
     setAnalysisResult(null);
     setAlternativesResult(null);
-    setDerivedScore(null);
+
+    let imageDataUri: string | undefined = undefined;
+    if (values.productImage && values.productImage.length > 0) {
+      const imageFile = values.productImage[0];
+      try {
+        imageDataUri = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = (error) => reject(error);
+          reader.readAsDataURL(imageFile);
+        });
+      } catch (error) {
+        console.error("Error converting image to data URI:", error);
+        toast({
+          title: "Image Processing Error",
+          description: "Could not process the uploaded image. Please try again or proceed without an image.",
+          variant: "destructive",
+        });
+        setIsLoadingAnalysis(false);
+        return;
+      }
+    }
 
     try {
-      const analysisData = await analyzeProductDescription({ productDescription: values.productDescription });
+      const analysisData = await analyzeProductDescription({ 
+        productDescription: values.productDescription,
+        imageDataUri: imageDataUri,
+      });
       setAnalysisResult(analysisData);
       
-      const score = parseScore(analysisData.environmentalImpactAnalysis);
-      setDerivedScore(score);
-
       toast({
         title: "Analysis Complete",
         description: "Product impact analysis finished successfully.",
       });
 
-      // Now, trigger alternatives suggestion
       setIsLoadingAlternatives(true);
       try {
         const alternativesData = await suggestSustainableAlternatives({
           productQuery: values.productDescription,
-          environmentalImpactScore: score ?? 60, // Use parsed score or a default if null
-          breakdown: analysisData.environmentalImpactAnalysis,
+          environmentalImpactScore: analysisData.overallSustainabilityScore, 
+          breakdown: analysisData.environmentalImpactAnalysis, // general summary
         });
         setAlternativesResult(alternativesData);
         toast({
@@ -119,7 +135,7 @@ export default function EcoAssessPage() {
           {isLoadingAnalysis && <LoadingSkeleton />}
           
           {analysisResult && !isLoadingAnalysis && (
-            <AnalysisDisplay analysis={analysisResult} score={derivedScore} />
+            <AnalysisDisplay analysis={analysisResult} />
           )}
 
           {isLoadingAlternatives && !isLoadingAnalysis && <LoadingSkeleton />}
