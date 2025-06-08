@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { MessageSquarePlus, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { submitFeedbackAction } from "@/app/actions/submit-feedback";
 
 const feedbackFormSchema = z.object({
   feedbackText: z.string().min(10, {
@@ -39,16 +41,32 @@ export default function FeedbackForm() {
 
   async function onSubmit(values: z.infer<typeof feedbackFormSchema>) {
     setIsSubmitting(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log("Feedback submitted:", values.feedbackText);
-    toast({
-      title: "Feedback Submitted!",
-      description: "Thank you for helping us improve EcoAssess.",
-      variant: "default",
-    });
-    form.reset();
-    setIsSubmitting(false);
+    try {
+      const result = await submitFeedbackAction(values.feedbackText);
+      if (result.success) {
+        toast({
+          title: "Feedback Submitted!",
+          description: "Thank you for helping us improve EcoAssess.",
+          variant: "default",
+        });
+        form.reset();
+      } else {
+        toast({
+          title: "Submission Failed",
+          description: result.message || "Could not submit your feedback. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error submitting feedback:", error);
+      toast({
+        title: "Submission Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
