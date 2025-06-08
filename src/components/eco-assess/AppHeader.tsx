@@ -1,5 +1,8 @@
-import { Leaf } from 'lucide-react';
+
+import { Leaf, BookOpen } from 'lucide-react';
 import { ModeToggle } from '@/components/mode-toggle';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 export default function AppHeader() {
   return (
@@ -11,7 +14,15 @@ export default function AppHeader() {
             EcoAssess
           </h1>
         </div>
-        <ModeToggle />
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" asChild>
+            <Link href="/learn" className="flex items-center gap-1">
+              <BookOpen className="h-5 w-5" />
+              Learn
+            </Link>
+          </Button>
+          <ModeToggle />
+        </div>
       </div>
     </header>
   );
