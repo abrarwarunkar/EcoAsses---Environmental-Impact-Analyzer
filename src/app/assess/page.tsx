@@ -532,7 +532,7 @@ export default function EcoAssessPage() {
                     analysis1={analysisResult1} 
                     productName1={product1Name}
                     analysis2={analysisResult2} 
-                    productName2={productName2}
+                    productName2={product2Name}
                   />
                 </div>
               }
@@ -550,3 +550,4 @@ export default function EcoAssessPage() {
     </div>
   );
 }
+
