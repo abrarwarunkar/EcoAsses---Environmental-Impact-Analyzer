@@ -13,7 +13,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const AnalyzeProductDescriptionInputSchema = z.object({
-  productDescription: z.string().describe('The description of the product to analyze.'),
+  productDescription: z.string().describe('The description of the product to analyze. This could be user-provided text, or text extracted from a URL or other source.'),
   imageDataUri: z.string().optional().describe("An image of the product, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
 });
 export type AnalyzeProductDescriptionInput = z.infer<typeof AnalyzeProductDescriptionInputSchema>;
@@ -28,6 +28,7 @@ const AnalyzeProductDescriptionOutputSchema = z.object({
     .string()
     .describe('A comprehensive, general summary analysis of the overall environmental impact of the product, synthesizing key findings.'),
   keyFactors: z.string().describe('A list or concise paragraph identifying the most significant environmental factors and potential concerns for the product based on the detailed analysis.'),
+  productIdentificationGuess: z.string().optional().describe('If an image was provided, your best guess of what the product is based on the image content. State if identification is unclear.'),
   detailedAnalysis: z.object({
     carbonFootprint: ImpactCategorySchema.describe("Detailed breakdown of carbon footprint impact. Consider the entire lifecycle: raw material extraction, manufacturing processes, transportation (local and international), energy consumption during use (if applicable), and end-of-life disposal or recycling emissions."),
     waterUsage: ImpactCategorySchema.describe("Detailed breakdown of water usage impact. Analyze both direct and indirect water consumption. Consider water scarcity in sourcing regions if information allows."),
@@ -52,14 +53,16 @@ const analyzeProductDescriptionPrompt = ai.definePrompt({
 
 Product Description: {{{productDescription}}}
 {{#if imageDataUri}}
-Product Photo (analyze image content for materials, complexity, etc.): {{media url=imageDataUri}}
+Product Photo: {{media url=imageDataUri}}
+Based *purely* on the visual information in the photo, attempt to identify the product (e.g., "a red cotton t-shirt", "a plastic water bottle", "a laptop computer"). This is your 'productIdentificationGuess'. If you cannot clearly identify it from the image, state that identification is unclear. Use this visual identification to complement the textual description for your analysis.
 {{/if}}
 
 Provide your analysis strictly in the following JSON structured format, adhering to the output schema. Ensure all fields are populated thoughtfully.
 
 1.  **environmentalImpactAnalysis**: Provide a comprehensive, general summary of the product's overall environmental impact, synthesizing key findings from your detailed analysis below.
 2.  **keyFactors**: Identify and list the most significant environmental factors and potential concerns associated with this product. These should be derived from the detailed analysis.
-3.  **detailedAnalysis**:
+3.  **productIdentificationGuess** (Only if an image was provided): Your best guess of what the product is based on the image content.
+4.  **detailedAnalysis**:
     *   **carbonFootprint**:
         *   **analysis**: Provide a detailed textual analysis of the product's carbon footprint. Consider the entire lifecycle: raw material extraction, manufacturing processes (energy sources, efficiency), transportation (modes, distances), energy consumption during the product's use phase (if applicable), and emissions from end-of-life processing (disposal, recycling).
         *   **impactLevel**: Estimate the carbon footprint impact as 'low', 'medium', 'high', or 'unknown'. If 'unknown', clearly state why.
@@ -72,7 +75,7 @@ Provide your analysis strictly in the following JSON structured format, adhering
     *   **recyclability**:
         *   **analysis**: Provide a detailed textual analysis of the product's end-of-life options. Assess its design for disassembly and recyclability. Are materials easily separable and commonly recycled? Mention compatibility with existing recycling infrastructure. Discuss compostability or biodegradability if applicable, and the likely impact of landfilling if that is the primary disposal route.
         *   **impactLevel**: Estimate the recyclability/end-of-life impact as 'low' (highly recyclable/beneficial end-of-life), 'medium', 'high' (problematic disposal, low recyclability), or 'unknown'. If 'unknown', clearly state why.
-4.  **overallSustainabilityScore**: Assign a numerical score from 0 (very unsustainable) to 100 (highly sustainable). This score must be a thoughtful aggregation of your comprehensive analysis across all detailed categories, reflecting a balanced, evidence-based assessment. Justify how you arrived at this score implicitly through your detailed analyses.
+5.  **overallSustainabilityScore**: Assign a numerical score from 0 (very unsustainable) to 100 (highly sustainable). This score must be a thoughtful aggregation of your comprehensive analysis across all detailed categories, reflecting a balanced, evidence-based assessment. Justify how you arrived at this score implicitly through your detailed analyses.
 
 Strive for thoroughness and specificity in your textual analysis for each section. Your goal is to provide an actionable and informative assessment. Ensure your entire response strictly adheres to the JSON schema provided for the output.
 `,
@@ -89,4 +92,3 @@ const analyzeProductDescriptionFlow = ai.defineFlow(
     return output!;
   }
 );
-

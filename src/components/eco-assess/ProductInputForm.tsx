@@ -24,8 +24,8 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 const formSchema = z.object({
-  productDescription: z.string().min(20, {
-    message: "Product description must be at least 20 characters.",
+  productDescription: z.string().min(10, { // Lowered min for broader search terms
+    message: "Description/Search term must be at least 10 characters.",
   }).max(2000, {
     message: "Product description must be at most 2000 characters.",
   }),
@@ -42,15 +42,19 @@ const formSchema = z.object({
     ),
 });
 
+export type ProductDescImageInputFormValues = z.infer<typeof formSchema>;
+
 type ProductInputFormProps = {
-  onSubmit: (values: z.infer<typeof formSchema>) => void;
+  onSubmit: (values: ProductDescImageInputFormValues) => void;
   isLoading: boolean;
+  formId?: string; // Optional ID for multiple forms on a page
+  submitButtonText?: string;
 };
 
-export default function ProductInputForm({ onSubmit, isLoading }: ProductInputFormProps) {
+export default function ProductInputForm({ onSubmit, isLoading, formId = "product-input-form", submitButtonText = "Analyze Product" }: ProductInputFormProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<ProductDescImageInputFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       productDescription: "",
@@ -80,35 +84,39 @@ export default function ProductInputForm({ onSubmit, isLoading }: ProductInputFo
   const handleRemoveImage = () => {
     form.setValue("productImage", undefined);
     setImagePreview(null);
-    const fileInput = document.getElementById('productImage') as HTMLInputElement;
+    const fileInput = document.getElementById(`${formId}-productImage`) as HTMLInputElement;
     if (fileInput) {
       fileInput.value = '';
     }
   };
+  
+  const currentDescription = form.watch("productDescription");
+  const isSubmitDisabled = isLoading || !currentDescription || currentDescription.length < 10;
+
 
   return (
     <Card className="shadow-lg">
       <CardHeader>
-        <CardTitle className="font-headline text-2xl">Analyze Product Impact</CardTitle>
+        <CardTitle className="font-headline text-2xl">Product Details</CardTitle>
         <CardDescription>
-          Enter a product description, URL, or key details. Optionally, upload an image for a more comprehensive analysis.
+          Enter product name, brand, SKU, or a detailed description. Optionally, upload an image.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6" id={formId}>
             <FormField
               control={form.control}
               name="productDescription"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Product Description</FormLabel>
+                  <FormLabel>Product Description, Name, Brand, or SKU</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="e.g., Organic cotton t-shirt, made in Vietnam, shipped by sea."
+                      placeholder="e.g., 'iPhone 15 Pro', 'Nike Air Zoom Pegasus', 'Organic cotton t-shirt, made in Vietnam', 'SKU: 123-ABC-789'"
                       className="min-h-[120px] resize-y"
                       {...field}
-                      aria-label="Product Description Input"
+                      aria-label="Product Description, Name, Brand, or SKU Input"
                     />
                   </FormControl>
                   <FormMessage />
@@ -125,7 +133,7 @@ export default function ProductInputForm({ onSubmit, isLoading }: ProductInputFo
                   <FormControl>
                     <div className="flex items-center gap-4">
                       <Input
-                        id="productImage"
+                        id={`${formId}-productImage`}
                         type="file"
                         accept={ACCEPTED_IMAGE_TYPES.join(',')}
                         onChange={(e) => onChange(e.target.files)}
@@ -143,7 +151,7 @@ export default function ProductInputForm({ onSubmit, isLoading }: ProductInputFo
             />
             
             {imagePreview && (
-              <div className="mt-4 relative group">
+              <div className="mt-4 relative group w-fit">
                 <Image 
                   src={imagePreview} 
                   alt="Product preview" 
@@ -165,14 +173,14 @@ export default function ProductInputForm({ onSubmit, isLoading }: ProductInputFo
             )}
 
 
-            <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isLoading} aria-label="Analyze Product Button">
+            <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isSubmitDisabled} aria-label={`${submitButtonText} Button`}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Analyzing...
                 </>
               ) : (
-                "Analyze Product"
+                submitButtonText
               )}
             </Button>
           </form>
@@ -181,3 +189,4 @@ export default function ProductInputForm({ onSubmit, isLoading }: ProductInputFo
     </Card>
   );
 }
+

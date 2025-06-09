@@ -1,10 +1,10 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import * as z from "zod";
 import AppHeader from "@/components/eco-assess/AppHeader";
-import ProductInputForm from "@/components/eco-assess/ProductInputForm";
+import ProductInputForm, { ProductDescImageInputFormValues } from "@/components/eco-assess/ProductInputForm";
 import AnalysisDisplay from "@/components/eco-assess/AnalysisDisplay";
 import AlternativesDisplay from "@/components/eco-assess/AlternativesDisplay";
 import FeedbackForm from "@/components/eco-assess/FeedbackForm";
@@ -12,6 +12,8 @@ import ComparisonDisplay from "@/components/eco-assess/ComparisonDisplay";
 
 import { analyzeProductDescription, AnalyzeProductDescriptionOutput } from "@/ai/flows/analyze-product-description";
 import { suggestSustainableAlternatives, SuggestSustainableAlternativesOutput } from "@/ai/flows/suggest-sustainable-alternatives";
+import { extractProductInfoFromUrl, ExtractProductInfoFromUrlOutput } from "@/ai/flows/extract-product-info-from-url";
+
 
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,27 +22,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Loader2, Info } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Loader2, Info, Link as LinkIcon, Barcode, CameraOff, Video } from "lucide-react";
 
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-
-const productInputSchema = z.object({
-  productDescription: z.string().min(20, "Min 20 chars").max(2000, "Max 2000 chars"),
-  productImage: z
-    .custom<FileList>((val) => val instanceof FileList, "Please upload a file")
-    .optional()
-    .refine(
-      (files) => !files || files.length === 0 || files?.[0]?.size <= MAX_FILE_SIZE,
-      `Max image size is 5MB.`
-    )
-    .refine(
-      (files) => !files || files.length === 0 || ACCEPTED_IMAGE_TYPES.includes(files?.[0]?.type),
-      "Only .jpg, .jpeg, .png and .webp formats are supported."
-    ),
+const productUrlInputSchema = z.object({
+  productUrl: z.string().url("Please enter a valid URL."),
 });
-type ProductInputFormValues = z.infer<typeof productInputSchema>;
+type ProductUrlInputFormValues = z.infer<typeof productUrlInputSchema>;
+
 
 const sustainabilityPreferenceOptions = [
   { id: "lowCarbon", label: "Low Carbon Footprint" },
@@ -52,21 +43,32 @@ const sustainabilityPreferenceOptions = [
 
 
 export default function EcoAssessPage() {
-  const [mode, setMode] = useState<"single" | "compare">("single");
+  const [analysisMode, setAnalysisMode] = useState<"single" | "compare">("single");
+  const [inputMethod, setInputMethod] = useState<"describe" | "url" | "barcode">("describe");
 
-  // Single mode states
+  // Shared states for single product analysis
   const [analysisResult, setAnalysisResult] = useState<AnalyzeProductDescriptionOutput | null>(null);
   const [alternativesResult, setAlternativesResult] = useState<SuggestSustainableAlternativesOutput | null>(null);
   const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
   const [isLoadingAlternatives, setIsLoadingAlternatives] = useState(false);
-  const [currentProductDescription, setCurrentProductDescription] = useState("");
+  const [currentProductQuery, setCurrentProductQuery] = useState(""); // For alternatives flow
   const [selectedPreferences, setSelectedPreferences] = useState<string[]>([]);
+
+  // URL input state
+  const [productUrl, setProductUrl] = useState("");
+  const [isLoadingUrlExtraction, setIsLoadingUrlExtraction] = useState(false);
+
+  // Barcode scanning states
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isScanningBarcode, setIsScanningBarcode] = useState(false); // Placeholder for actual scanning
+  const [scannedBarcode, setScannedBarcode] = useState<string | null>(null); // Placeholder
 
   // Compare mode states
   const [analysisResult1, setAnalysisResult1] = useState<AnalyzeProductDescriptionOutput | null>(null);
   const [analysisResult2, setAnalysisResult2] = useState<AnalyzeProductDescriptionOutput | null>(null);
-  const [product1Input, setProduct1Input] = useState<ProductInputFormValues | null>(null);
-  const [product2Input, setProduct2Input] = useState<ProductInputFormValues | null>(null);
+  const [product1InputDesc, setProduct1InputDesc] = useState<ProductDescImageInputFormValues | null>(null);
+  const [product2InputDesc, setProduct2InputDesc] = useState<ProductDescImageInputFormValues | null>(null);
   const [isLoadingProduct1, setIsLoadingProduct1] = useState(false);
   const [isLoadingProduct2, setIsLoadingProduct2] = useState(false);
   
@@ -82,45 +84,79 @@ export default function EcoAssessPage() {
     });
   };
 
-  const handleAnalyzeSingleProduct = async (values: ProductInputFormValues) => {
+  // --- Camera Permission Logic ---
+  useEffect(() => {
+    if (inputMethod === "barcode") {
+      const getCameraPermission = async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+          setHasCameraPermission(true);
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        } catch (error) {
+          console.error('Error accessing camera:', error);
+          setHasCameraPermission(false);
+          toast({
+            variant: 'destructive',
+            title: 'Camera Access Denied',
+            description: 'Please enable camera permissions in your browser settings to use barcode scanning.',
+          });
+        }
+      };
+      getCameraPermission();
+
+      return () => { // Cleanup: stop camera stream when component unmounts or input method changes
+        if (videoRef.current && videoRef.current.srcObject) {
+          const stream = videoRef.current.srcObject as MediaStream;
+          stream.getTracks().forEach(track => track.stop());
+        }
+      };
+    } else {
+      // If not in barcode mode, ensure camera is off and permission state is reset
+      if (videoRef.current && videoRef.current.srcObject) {
+          const stream = videoRef.current.srcObject as MediaStream;
+          stream.getTracks().forEach(track => track.stop());
+          videoRef.current.srcObject = null;
+      }
+      setHasCameraPermission(null); // Reset permission state
+    }
+  }, [inputMethod, toast]);
+
+
+  // --- Analysis Logic ---
+  const performFullAnalysis = async (description: string, imageDataUri?: string) => {
     setIsLoadingAnalysis(true);
     setAnalysisResult(null);
     setAlternativesResult(null);
-    setCurrentProductDescription(values.productDescription);
-
-    let imageDataUri: string | undefined;
-    try {
-      imageDataUri = await convertToDataUri(values.productImage?.[0]);
-    } catch (error) {
-      console.error("Error converting image for single product:", error);
-      toast({ title: "Image Processing Error", description: "Could not process image. Try again or proceed without.", variant: "destructive" });
-      setIsLoadingAnalysis(false);
-      return;
-    }
+    setCurrentProductQuery(description);
 
     try {
       const analysisData = await analyzeProductDescription({ 
-        productDescription: values.productDescription,
+        productDescription: description,
         imageDataUri: imageDataUri,
       });
       setAnalysisResult(analysisData);
       toast({ title: "Analysis Complete", description: "Product impact analysis finished." });
 
-      setIsLoadingAlternatives(true);
-      try {
-        const alternativesData = await suggestSustainableAlternatives({
-          productQuery: values.productDescription,
-          environmentalImpactScore: analysisData.overallSustainabilityScore, 
-          breakdown: analysisData.environmentalImpactAnalysis,
-          sustainabilityPreferences: selectedPreferences,
-        });
-        setAlternativesResult(alternativesData);
-        toast({ title: "Alternatives Suggested", description: "Sustainable alternatives generated." });
-      } catch (altError) {
-        console.error("Error suggesting alternatives:", altError);
-        toast({ title: "Error Suggesting Alternatives", description: "Could not generate alternatives.", variant: "destructive" });
-      } finally {
-        setIsLoadingAlternatives(false);
+      // Suggest alternatives only in single mode and if analysis was successful
+      if (analysisMode === "single") {
+        setIsLoadingAlternatives(true);
+        try {
+          const alternativesData = await suggestSustainableAlternatives({
+            productQuery: description,
+            environmentalImpactScore: analysisData.overallSustainabilityScore, 
+            breakdown: analysisData.environmentalImpactAnalysis + (analysisData.productIdentificationGuess ? ` (Identified as: ${analysisData.productIdentificationGuess})` : ""),
+            sustainabilityPreferences: selectedPreferences,
+          });
+          setAlternativesResult(alternativesData);
+          toast({ title: "Alternatives Suggested", description: "Sustainable alternatives generated." });
+        } catch (altError) {
+          console.error("Error suggesting alternatives:", altError);
+          toast({ title: "Error Suggesting Alternatives", description: "Could not generate alternatives.", variant: "destructive" });
+        } finally {
+          setIsLoadingAlternatives(false);
+        }
       }
     } catch (error) {
       console.error("Error analyzing product:", error);
@@ -130,8 +166,61 @@ export default function EcoAssessPage() {
     }
   };
 
+  const handleAnalyzeDescriptionImage = async (values: ProductDescImageInputFormValues) => {
+    let imageDataUri: string | undefined;
+    try {
+      imageDataUri = await convertToDataUri(values.productImage?.[0]);
+    } catch (error) {
+      console.error("Error converting image:", error);
+      toast({ title: "Image Processing Error", description: "Could not process image. Try again or proceed without.", variant: "destructive" });
+      // Optionally allow proceeding without image:
+      // performFullAnalysis(values.productDescription, undefined);
+      return;
+    }
+    performFullAnalysis(values.productDescription, imageDataUri);
+  };
+
+  const handleAnalyzeUrl = async () => {
+    const validation = productUrlInputSchema.safeParse({ productUrl });
+    if (!validation.success) {
+      toast({ title: "Invalid URL", description: validation.error.errors[0].message, variant: "destructive" });
+      return;
+    }
+
+    setIsLoadingUrlExtraction(true);
+    setIsLoadingAnalysis(true); // Also set this true as it's part of the overall analysis process
+    setAnalysisResult(null);
+    setAlternativesResult(null);
+    
+    try {
+      const extractedInfo = await extractProductInfoFromUrl({ productUrl: validation.data.productUrl });
+      toast({ title: "URL Info Extracted", description: "Product details parsed from URL." });
+      setIsLoadingUrlExtraction(false);
+      // Use extracted info for full analysis
+      await performFullAnalysis(extractedInfo.productDescription || "Product from URL", undefined); // No image with URL method for now
+    } catch (error) {
+      console.error("Error extracting from URL or analyzing:", error);
+      toast({ title: "URL Analysis Failed", description: "Could not process the URL.", variant: "destructive" });
+      setIsLoadingUrlExtraction(false);
+      setIsLoadingAnalysis(false);
+    }
+  };
+  
+  const handleSimulateBarcodeScan = () => {
+    // In a real app, this would be triggered by a barcode scanning library
+    // For now, we simulate it and use a placeholder barcode.
+    const MOCK_BARCODE_DATA = "0123456789123"; // Example barcode
+    setScannedBarcode(MOCK_BARCODE_DATA);
+    toast({ title: "Barcode Scanned (Simulated)", description: `Barcode: ${MOCK_BARCODE_DATA}`});
+    // Proceed to analyze this mock barcode data
+    // We'll pretend the barcode itself is the description for now
+    performFullAnalysis(`Product with barcode: ${MOCK_BARCODE_DATA}`, undefined);
+  };
+
+
+  // --- Compare Mode Logic ---
   const handleAnalyzeComparison = async () => {
-    if (!product1Input || !product2Input) {
+    if (!product1InputDesc || !product2InputDesc) {
       toast({ title: "Missing Information", description: "Please provide details for both products.", variant: "destructive" });
       return;
     }
@@ -144,26 +233,14 @@ export default function EcoAssessPage() {
     let imageDataUri1: string | undefined;
     let imageDataUri2: string | undefined;
 
-    try {
-      imageDataUri1 = await convertToDataUri(product1Input.productImage?.[0]);
-    } catch (error) {
-      console.error("Error converting image for product 1:", error);
-      toast({ title: "Image Error (Product 1)", description: "Could not process image for Product 1.", variant: "destructive" });
-      setIsLoadingProduct1(false); // only stop this one if image fails
-    }
-    try {
-      imageDataUri2 = await convertToDataUri(product2Input.productImage?.[0]);
-    } catch (error) {
-      console.error("Error converting image for product 2:", error);
-      toast({ title: "Image Error (Product 2)", description: "Could not process image for Product 2.", variant: "destructive" });
-      setIsLoadingProduct2(false); // only stop this one if image fails
-    }
+    try { imageDataUri1 = await convertToDataUri(product1InputDesc.productImage?.[0]); } catch (e) { /* already handled */ }
+    try { imageDataUri2 = await convertToDataUri(product2InputDesc.productImage?.[0]); } catch (e) { /* already handled */ }
 
     // Analyze Product 1
-    if (product1Input) {
+    if (product1InputDesc) {
       try {
         const analysisData1 = await analyzeProductDescription({
-          productDescription: product1Input.productDescription,
+          productDescription: product1InputDesc.productDescription,
           imageDataUri: imageDataUri1,
         });
         setAnalysisResult1(analysisData1);
@@ -174,16 +251,13 @@ export default function EcoAssessPage() {
       } finally {
         setIsLoadingProduct1(false);
       }
-    } else {
-        setIsLoadingProduct1(false);
-    }
-
+    } else { setIsLoadingProduct1(false); }
 
     // Analyze Product 2
-    if (product2Input) {
+    if (product2InputDesc) {
         try {
             const analysisData2 = await analyzeProductDescription({
-            productDescription: product2Input.productDescription,
+            productDescription: product2InputDesc.productDescription,
             imageDataUri: imageDataUri2,
             });
             setAnalysisResult2(analysisData2);
@@ -194,13 +268,11 @@ export default function EcoAssessPage() {
         } finally {
             setIsLoadingProduct2(false);
         }
-    } else {
-        setIsLoadingProduct2(false);
-    }
+    } else { setIsLoadingProduct2(false); }
   };
   
   const LoadingSkeleton = () => (
-    <Card className="shadow-lg">
+    <Card className="shadow-lg mt-8">
       <CardContent className="p-6 space-y-4">
         <Skeleton className="h-8 w-3/4" />
         <Skeleton className="h-4 w-1/2" />
@@ -219,68 +291,164 @@ export default function EcoAssessPage() {
     );
   };
 
-  const isCompareButtonDisabled = isLoadingProduct1 || isLoadingProduct2 || !product1Input?.productDescription || !product2Input?.productDescription;
+  const isCompareButtonDisabled = isLoadingProduct1 || isLoadingProduct2 || !product1InputDesc?.productDescription || !product2InputDesc?.productDescription;
+  const product1Name = useMemo(() => product1InputDesc?.productDescription.substring(0,30) + (product1InputDesc && product1InputDesc.productDescription.length > 30 ? "..." : "") || "Product 1", [product1InputDesc]);
+  const product2Name = useMemo(() => product2InputDesc?.productDescription.substring(0,30) + (product2InputDesc && product2InputDesc.productDescription.length > 30 ? "..." : "") || "Product 2", [product2InputDesc]);
 
-  const product1Name = useMemo(() => product1Input?.productDescription.substring(0,30) + (product1Input && product1Input.productDescription.length > 30 ? "..." : "") || "Product 1", [product1Input]);
-  const product2Name = useMemo(() => product2Input?.productDescription.substring(0,30) + (product2Input && product2Input.productDescription.length > 30 ? "..." : "") || "Product 2", [product2Input]);
-
+  const handleInputMethodChange = (value: string) => {
+    setInputMethod(value as "describe" | "url" | "barcode");
+    // Reset results when changing input method in single mode
+    setAnalysisResult(null);
+    setAlternativesResult(null);
+    setProductUrl(""); // Clear URL input if switching away
+    setScannedBarcode(null); // Clear scanned barcode
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <AppHeader />
       <main className="flex-grow container mx-auto px-4 py-8 md:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto space-y-8">
-          <Tabs value={mode} onValueChange={(value) => setMode(value as "single" | "compare")} className="w-full">
+          <Tabs value={analysisMode} onValueChange={(value) => setAnalysisMode(value as "single" | "compare")} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="single">Single Product Analysis</TabsTrigger>
               <TabsTrigger value="compare">Compare Two Products</TabsTrigger>
             </TabsList>
+            
+            {/* Single Product Analysis Tab Content */}
             <TabsContent value="single" className="mt-6">
-              <ProductInputForm onSubmit={handleAnalyzeSingleProduct} isLoading={isLoadingAnalysis || isLoadingAlternatives} />
-              
-              <Card className="mt-8 shadow-lg">
+              <Card>
                 <CardHeader>
-                  <CardTitle className="font-headline text-xl">Sustainability Preferences (Optional)</CardTitle>
-                  <CardDescription>Select aspects you care about most for alternative suggestions.</CardDescription>
+                  <CardTitle>Choose Input Method</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  {sustainabilityPreferenceOptions.map(pref => (
-                    <div key={pref.id} className="flex items-center space-x-2">
-                      <Checkbox 
-                        id={pref.id} 
-                        checked={selectedPreferences.includes(pref.label)}
-                        onCheckedChange={() => handlePreferenceChange(pref.label)}
-                      />
-                      <Label htmlFor={pref.id} className="font-normal cursor-pointer">{pref.label}</Label>
-                    </div>
-                  ))}
+                <CardContent>
+                  <Tabs value={inputMethod} onValueChange={handleInputMethodChange} className="w-full">
+                    <TabsList className="grid w-full grid-cols-3">
+                      <TabsTrigger value="describe">Describe / Upload</TabsTrigger>
+                      <TabsTrigger value="url">Use URL</TabsTrigger>
+                      <TabsTrigger value="barcode">Scan Barcode</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="describe" className="mt-6">
+                      <ProductInputForm onSubmit={handleAnalyzeDescriptionImage} isLoading={isLoadingAnalysis || isLoadingAlternatives} />
+                    </TabsContent>
+
+                    <TabsContent value="url" className="mt-6">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="font-headline text-2xl flex items-center gap-2"><LinkIcon /> Analyze by Product URL</CardTitle>
+                          <CardDescription>Enter the URL of a product page to extract its details for analysis.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="productUrlInput">Product URL</Label>
+                            <Input 
+                              id="productUrlInput"
+                              type="url" 
+                              placeholder="https://www.example.com/product-page" 
+                              value={productUrl}
+                              onChange={(e) => setProductUrl(e.target.value)} 
+                            />
+                          </div>
+                          <Button 
+                            onClick={handleAnalyzeUrl} 
+                            disabled={isLoadingUrlExtraction || isLoadingAnalysis || !productUrl}
+                            className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
+                          >
+                            {(isLoadingUrlExtraction || isLoadingAnalysis) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Fetch & Analyze URL
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </TabsContent>
+
+                    <TabsContent value="barcode" className="mt-6">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="font-headline text-2xl flex items-center gap-2"><Barcode /> Scan Barcode</CardTitle>
+                          <CardDescription>Use your camera to scan a product barcode. (Scanning functionality is simulated for now).</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="aspect-video bg-muted border rounded-md flex items-center justify-center overflow-hidden">
+                            <video ref={videoRef} className={`w-full h-full object-cover ${hasCameraPermission === true ? 'block' : 'hidden'}`} autoPlay muted playsInline />
+                            {hasCameraPermission === false && <div className="text-center p-4"><CameraOff className="h-12 w-12 mx-auto text-muted-foreground" /><p className="mt-2 text-muted-foreground">Camera access denied or not available.</p></div>}
+                            {hasCameraPermission === null && <div className="text-center p-4"><Video className="h-12 w-12 mx-auto text-muted-foreground" /><p className="mt-2 text-muted-foreground">Attempting to access camera...</p></div>}
+                          </div>
+                          {hasCameraPermission === false && (
+                            <Alert variant="destructive">
+                              <AlertTitle>Camera Access Required</AlertTitle>
+                              <AlertDescription>
+                                Please allow camera access in your browser settings to use the barcode scanning feature.
+                              </AlertDescription>
+                            </Alert>
+                          )}
+                          <Button 
+                            onClick={handleSimulateBarcodeScan} 
+                            disabled={hasCameraPermission !== true || isScanningBarcode || isLoadingAnalysis}
+                            className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
+                            data-ai-hint="barcode scanner"
+                          >
+                            {(isScanningBarcode || isLoadingAnalysis) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Scan Barcode (Simulate)
+                          </Button>
+                          {scannedBarcode && <p className="text-sm text-center text-muted-foreground">Last simulated scan: {scannedBarcode}</p>}
+                        </CardContent>
+                      </Card>
+                    </TabsContent>
+                  </Tabs>
                 </CardContent>
               </Card>
+              
+              {inputMethod !== "barcode" && ( // Preferences not relevant for barcode scan simulation yet
+                  <Card className="mt-8 shadow-lg">
+                    <CardHeader>
+                      <CardTitle className="font-headline text-xl">Sustainability Preferences (Optional)</CardTitle>
+                      <CardDescription>Select aspects you care about most for alternative suggestions.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {sustainabilityPreferenceOptions.map(pref => (
+                        <div key={pref.id} className="flex items-center space-x-2">
+                          <Checkbox 
+                            id={pref.id} 
+                            checked={selectedPreferences.includes(pref.label)}
+                            onCheckedChange={() => handlePreferenceChange(pref.label)}
+                          />
+                          <Label htmlFor={pref.id} className="font-normal cursor-pointer">{pref.label}</Label>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+              )}
 
-              {isLoadingAnalysis && <div className="mt-8"><LoadingSkeleton /></div>}
-              {analysisResult && !isLoadingAnalysis && (
+              {(isLoadingAnalysis || isLoadingUrlExtraction) && <LoadingSkeleton />}
+              {analysisResult && !isLoadingAnalysis && !isLoadingUrlExtraction && (
                 <div className="mt-8"><AnalysisDisplay analysis={analysisResult} /></div>
               )}
-              {isLoadingAlternatives && !isLoadingAnalysis && <div className="mt-8"><LoadingSkeleton /></div>}
-              {alternativesResult && !isLoadingAlternatives && !isLoadingAnalysis && (
+              {isLoadingAlternatives && !isLoadingAnalysis && !isLoadingUrlExtraction && <LoadingSkeleton />}
+              {alternativesResult && !isLoadingAlternatives && !isLoadingAnalysis && !isLoadingUrlExtraction && (
                 <div className="mt-8"><AlternativesDisplay alternatives={alternativesResult} /></div>
               )}
             </TabsContent>
 
+            {/* Compare Two Products Tab Content */}
             <TabsContent value="compare" className="mt-6 space-y-8">
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <h2 className="text-xl font-semibold mb-3 text-center font-headline text-primary">Product 1</h2>
                   <ProductInputForm 
-                    onSubmit={(values) => setProduct1Input(values)} 
+                    onSubmit={(values) => setProduct1InputDesc(values)} 
                     isLoading={isLoadingProduct1} 
+                    formId="product1-form"
+                    submitButtonText="Set Product 1 for Comparison"
                   />
                 </div>
                 <div>
                   <h2 className="text-xl font-semibold mb-3 text-center font-headline text-primary">Product 2</h2>
                   <ProductInputForm 
-                    onSubmit={(values) => setProduct2Input(values)} 
+                    onSubmit={(values) => setProduct2InputDesc(values)} 
                     isLoading={isLoadingProduct2}
+                    formId="product2-form"
+                    submitButtonText="Set Product 2 for Comparison"
                   />
                 </div>
               </div>
@@ -293,7 +461,7 @@ export default function EcoAssessPage() {
                 {(isLoadingProduct1 || isLoadingProduct2) && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
                 Compare Products
               </Button>
-              {(isLoadingProduct1 || isLoadingProduct2) && (analysisResult1 || analysisResult2) && <div className="mt-8"><LoadingSkeleton /></div>}
+              {(isLoadingProduct1 || isLoadingProduct2) && (analysisResult1 || analysisResult2) && <LoadingSkeleton />}
               {(analysisResult1 || analysisResult2) && !(isLoadingProduct1 || isLoadingProduct2) &&
                 <div className="mt-8">
                   <ComparisonDisplay 
