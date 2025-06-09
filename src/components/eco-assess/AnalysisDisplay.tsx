@@ -78,7 +78,7 @@ export default function AnalysisDisplay({ analysis }: AnalysisDisplayProps) {
           Environmental Impact Report
         </CardTitle>
         <CardDescription>
-          Overall Environmental Score: {score}/100
+          Overall Environmental Score: {score}/100 (0 = Very Unsustainable, 100 = Highly Sustainable)
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -101,6 +101,18 @@ export default function AnalysisDisplay({ analysis }: AnalysisDisplayProps) {
             {analysis.environmentalImpactAnalysis}
           </p>
         </div>
+
+        {analysis.productIdentificationGuess && (
+          <div className="space-y-2">
+            <h3 className="font-semibold text-lg flex items-center gap-2">
+              <Info className="h-5 w-5 text-primary" />
+              Identified Product (from image)
+            </h3>
+            <p className="text-muted-foreground leading-relaxed">
+              {analysis.productIdentificationGuess}
+            </p>
+          </div>
+        )}
 
         <div className="space-y-2">
           <h3 className="font-semibold text-lg flex items-center gap-2">
