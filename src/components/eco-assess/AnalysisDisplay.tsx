@@ -2,7 +2,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { FileText, MountainSnow, ShieldAlert, Cloud, Waves, Leaf, Recycle, AlertTriangle, CheckCircle2, MinusCircle } from "lucide-react";
+import { FileText, MountainSnow, ShieldAlert, Cloud, Waves, Leaf, Recycle, AlertTriangle, CheckCircle2, MinusCircle, Info } from "lucide-react";
 import type { AnalyzeProductDescriptionOutput } from "@/ai/flows/analyze-product-description";
 import { Badge } from "@/components/ui/badge";
 
