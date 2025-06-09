@@ -24,7 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Info, Link as LinkIcon, Barcode, CameraOff, Video } from "lucide-react";
+import { Loader2, Info, Link as LinkIcon } from "lucide-react";
 
 
 const productUrlInputSchema = z.object({
@@ -44,7 +44,7 @@ const sustainabilityPreferenceOptions = [
 
 export default function EcoAssessPage() {
   const [analysisMode, setAnalysisMode] = useState<"single" | "compare">("single");
-  const [inputMethod, setInputMethod] = useState<"describe" | "url" | "barcode">("describe");
+  const [inputMethod, setInputMethod] = useState<"describe" | "url">("describe");
 
   // Shared states for single product analysis
   const [analysisResult, setAnalysisResult] = useState<AnalyzeProductDescriptionOutput | null>(null);
@@ -57,12 +57,6 @@ export default function EcoAssessPage() {
   // URL input state
   const [productUrl, setProductUrl] = useState("");
   const [isLoadingUrlExtraction, setIsLoadingUrlExtraction] = useState(false);
-
-  // Barcode scanning states
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [isScanningBarcode, setIsScanningBarcode] = useState(false); // Placeholder for actual scanning
-  const [scannedBarcode, setScannedBarcode] = useState<string | null>(null); // Placeholder
 
   // Compare mode states
   const [analysisResult1, setAnalysisResult1] = useState<AnalyzeProductDescriptionOutput | null>(null);
@@ -83,46 +77,6 @@ export default function EcoAssessPage() {
       reader.readAsDataURL(file);
     });
   };
-
-  // --- Camera Permission Logic ---
-  useEffect(() => {
-    if (inputMethod === "barcode") {
-      const getCameraPermission = async () => {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-          setHasCameraPermission(true);
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-          }
-        } catch (error) {
-          console.error('Error accessing camera:', error);
-          setHasCameraPermission(false);
-          toast({
-            variant: 'destructive',
-            title: 'Camera Access Denied',
-            description: 'Please enable camera permissions in your browser settings to use barcode scanning.',
-          });
-        }
-      };
-      getCameraPermission();
-
-      return () => { // Cleanup: stop camera stream when component unmounts or input method changes
-        if (videoRef.current && videoRef.current.srcObject) {
-          const stream = videoRef.current.srcObject as MediaStream;
-          stream.getTracks().forEach(track => track.stop());
-        }
-      };
-    } else {
-      // If not in barcode mode, ensure camera is off and permission state is reset
-      if (videoRef.current && videoRef.current.srcObject) {
-          const stream = videoRef.current.srcObject as MediaStream;
-          stream.getTracks().forEach(track => track.stop());
-          videoRef.current.srcObject = null;
-      }
-      setHasCameraPermission(null); // Reset permission state
-    }
-  }, [inputMethod, toast]);
-
 
   // --- Analysis Logic ---
   const performFullAnalysis = async (description: string, imageDataUri?: string) => {
@@ -206,17 +160,6 @@ export default function EcoAssessPage() {
     }
   };
   
-  const handleSimulateBarcodeScan = () => {
-    // In a real app, this would be triggered by a barcode scanning library
-    // For now, we simulate it and use a placeholder barcode.
-    const MOCK_BARCODE_DATA = "0123456789123"; // Example barcode
-    setScannedBarcode(MOCK_BARCODE_DATA);
-    toast({ title: "Barcode Scanned (Simulated)", description: `Barcode: ${MOCK_BARCODE_DATA}`});
-    // Proceed to analyze this mock barcode data
-    // We'll pretend the barcode itself is the description for now
-    performFullAnalysis(`Product with barcode: ${MOCK_BARCODE_DATA}`, undefined);
-  };
-
 
   // --- Compare Mode Logic ---
   const handleAnalyzeComparison = async () => {
@@ -296,12 +239,11 @@ export default function EcoAssessPage() {
   const product2Name = useMemo(() => product2InputDesc?.productDescription.substring(0,30) + (product2InputDesc && product2InputDesc.productDescription.length > 30 ? "..." : "") || "Product 2", [product2InputDesc]);
 
   const handleInputMethodChange = (value: string) => {
-    setInputMethod(value as "describe" | "url" | "barcode");
+    setInputMethod(value as "describe" | "url");
     // Reset results when changing input method in single mode
     setAnalysisResult(null);
     setAlternativesResult(null);
     setProductUrl(""); // Clear URL input if switching away
-    setScannedBarcode(null); // Clear scanned barcode
   }
 
   return (
@@ -323,10 +265,9 @@ export default function EcoAssessPage() {
                 </CardHeader>
                 <CardContent>
                   <Tabs value={inputMethod} onValueChange={handleInputMethodChange} className="w-full">
-                    <TabsList className="grid w-full grid-cols-3">
+                    <TabsList className="grid w-full grid-cols-2">
                       <TabsTrigger value="describe">Describe / Upload</TabsTrigger>
                       <TabsTrigger value="url">Use URL</TabsTrigger>
-                      <TabsTrigger value="barcode">Scan Barcode</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="describe" className="mt-6">
@@ -361,64 +302,28 @@ export default function EcoAssessPage() {
                         </CardContent>
                       </Card>
                     </TabsContent>
-
-                    <TabsContent value="barcode" className="mt-6">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="font-headline text-2xl flex items-center gap-2"><Barcode /> Scan Barcode</CardTitle>
-                          <CardDescription>Use your camera to scan a product barcode. (Scanning functionality is simulated for now).</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <div className="aspect-video bg-muted border rounded-md flex items-center justify-center overflow-hidden">
-                            <video ref={videoRef} className={`w-full h-full object-cover ${hasCameraPermission === true ? 'block' : 'hidden'}`} autoPlay muted playsInline />
-                            {hasCameraPermission === false && <div className="text-center p-4"><CameraOff className="h-12 w-12 mx-auto text-muted-foreground" /><p className="mt-2 text-muted-foreground">Camera access denied or not available.</p></div>}
-                            {hasCameraPermission === null && <div className="text-center p-4"><Video className="h-12 w-12 mx-auto text-muted-foreground" /><p className="mt-2 text-muted-foreground">Attempting to access camera...</p></div>}
-                          </div>
-                          {hasCameraPermission === false && (
-                            <Alert variant="destructive">
-                              <AlertTitle>Camera Access Required</AlertTitle>
-                              <AlertDescription>
-                                Please allow camera access in your browser settings to use the barcode scanning feature.
-                              </AlertDescription>
-                            </Alert>
-                          )}
-                          <Button 
-                            onClick={handleSimulateBarcodeScan} 
-                            disabled={hasCameraPermission !== true || isScanningBarcode || isLoadingAnalysis}
-                            className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
-                            data-ai-hint="barcode scanner"
-                          >
-                            {(isScanningBarcode || isLoadingAnalysis) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                            Scan Barcode (Simulate)
-                          </Button>
-                          {scannedBarcode && <p className="text-sm text-center text-muted-foreground">Last simulated scan: {scannedBarcode}</p>}
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
                   </Tabs>
                 </CardContent>
               </Card>
               
-              {inputMethod !== "barcode" && ( // Preferences not relevant for barcode scan simulation yet
-                  <Card className="mt-8 shadow-lg">
-                    <CardHeader>
-                      <CardTitle className="font-headline text-xl">Sustainability Preferences (Optional)</CardTitle>
-                      <CardDescription>Select aspects you care about most for alternative suggestions.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {sustainabilityPreferenceOptions.map(pref => (
-                        <div key={pref.id} className="flex items-center space-x-2">
-                          <Checkbox 
-                            id={pref.id} 
-                            checked={selectedPreferences.includes(pref.label)}
-                            onCheckedChange={() => handlePreferenceChange(pref.label)}
-                          />
-                          <Label htmlFor={pref.id} className="font-normal cursor-pointer">{pref.label}</Label>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-              )}
+              <Card className="mt-8 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="font-headline text-xl">Sustainability Preferences (Optional)</CardTitle>
+                  <CardDescription>Select aspects you care about most for alternative suggestions.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {sustainabilityPreferenceOptions.map(pref => (
+                    <div key={pref.id} className="flex items-center space-x-2">
+                      <Checkbox 
+                        id={pref.id} 
+                        checked={selectedPreferences.includes(pref.label)}
+                        onCheckedChange={() => handlePreferenceChange(pref.label)}
+                      />
+                      <Label htmlFor={pref.id} className="font-normal cursor-pointer">{pref.label}</Label>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
 
               {(isLoadingAnalysis || isLoadingUrlExtraction) && <LoadingSkeleton />}
               {analysisResult && !isLoadingAnalysis && !isLoadingUrlExtraction && (
@@ -486,3 +391,4 @@ export default function EcoAssessPage() {
     </div>
   );
 }
+
