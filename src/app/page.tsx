@@ -9,10 +9,13 @@ import AnalysisDisplay from "@/components/eco-assess/AnalysisDisplay";
 import AlternativesDisplay from "@/components/eco-assess/AlternativesDisplay";
 import FeedbackForm from "@/components/eco-assess/FeedbackForm";
 import ComparisonDisplay from "@/components/eco-assess/ComparisonDisplay";
+import ProductInsightsDisplay from "@/components/eco-assess/ProductInsightsDisplay";
+
 
 import { analyzeProductDescription, AnalyzeProductDescriptionOutput } from "@/ai/flows/analyze-product-description";
 import { suggestSustainableAlternatives, SuggestSustainableAlternativesOutput } from "@/ai/flows/suggest-sustainable-alternatives";
 import { extractProductInfoFromUrl, ExtractProductInfoFromUrlOutput } from "@/ai/flows/extract-product-info-from-url";
+import { generateProductInsights, GenerateProductInsightsOutput } from "@/ai/flows/generate-product-insights";
 
 
 import { useToast } from "@/hooks/use-toast";
@@ -49,8 +52,12 @@ export default function EcoAssessPage() {
   // Shared states for single product analysis
   const [analysisResult, setAnalysisResult] = useState<AnalyzeProductDescriptionOutput | null>(null);
   const [alternativesResult, setAlternativesResult] = useState<SuggestSustainableAlternativesOutput | null>(null);
-  const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
+  const [insightsResult, setInsightsResult] = useState<GenerateProductInsightsOutput | null>(null);
+  
+  const [isLoadingMainAnalysis, setIsLoadingMainAnalysis] = useState(false);
   const [isLoadingAlternatives, setIsLoadingAlternatives] = useState(false);
+  const [isLoadingInsights, setIsLoadingInsights] = useState(false);
+
   const [currentProductQuery, setCurrentProductQuery] = useState("");
   const [selectedPreferences, setSelectedPreferences] = useState<string[]>([]);
 
@@ -90,19 +97,48 @@ export default function EcoAssessPage() {
 
   // --- Analysis Logic ---
   const performFullAnalysis = async (description: string, imageDataUri?: string) => {
-    setIsLoadingAnalysis(true);
+    setIsLoadingMainAnalysis(true);
     setAnalysisResult(null);
     setAlternativesResult(null);
+    setInsightsResult(null);
     setCurrentProductQuery(description);
 
+    let analysisData: AnalyzeProductDescriptionOutput | null = null;
+
     try {
-      const analysisData = await analyzeProductDescription({ 
+      analysisData = await analyzeProductDescription({ 
         productDescription: description,
         imageDataUri: imageDataUri,
       });
       setAnalysisResult(analysisData);
       toast({ title: "Analysis Complete", description: "Product impact analysis finished." });
+    } catch (error) {
+      console.error("Error analyzing product:", error);
+      toast({ title: "Analysis Failed", description: "Could not analyze the product.", variant: "destructive" });
+      setIsLoadingMainAnalysis(false); // Stop main loading on error
+      throw error; 
+    } finally {
+       setIsLoadingMainAnalysis(false); // Always stop main loading after attempt
+    }
 
+    if (analysisData) {
+      // Generate Insights (New)
+      setIsLoadingInsights(true);
+      try {
+        const insightsData = await generateProductInsights({
+          productQuery: description, 
+          analysisResult: analysisData,
+        });
+        setInsightsResult(insightsData);
+        toast({ title: "Insights Generated", description: "Additional tips and insights are ready." });
+      } catch (insightError) {
+        console.error("Error generating insights:", insightError);
+        toast({ title: "Insights Generation Failed", description: "Could not generate additional insights.", variant: "destructive" });
+      } finally {
+        setIsLoadingInsights(false);
+      }
+
+      // Suggest Alternatives (Existing)
       if (analysisMode === "single") {
         setIsLoadingAlternatives(true);
         try {
@@ -121,14 +157,8 @@ export default function EcoAssessPage() {
           setIsLoadingAlternatives(false);
         }
       }
-      return analysisData; // Return analysis data for compare mode
-    } catch (error) {
-      console.error("Error analyzing product:", error);
-      toast({ title: "Analysis Failed", description: "Could not analyze the product.", variant: "destructive" });
-      throw error; // Re-throw for compare mode to handle
-    } finally {
-      setIsLoadingAnalysis(false);
     }
+    return analysisData; // Return analysis data for compare mode
   };
 
   const handleAnalyzeDescriptionImage = async (values: ProductDescImageInputFormValues) => {
@@ -151,20 +181,21 @@ export default function EcoAssessPage() {
     }
 
     setIsLoadingUrlExtraction(true);
-    setIsLoadingAnalysis(true);
+    // Main analysis loading will be handled by performFullAnalysis
     setAnalysisResult(null);
     setAlternativesResult(null);
+    setInsightsResult(null);
     
     try {
       const extractedInfo = await extractProductInfoFromUrl({ productUrl: validation.data.productUrl });
       toast({ title: "URL Info Extracted", description: "Product details parsed from URL." });
-      setIsLoadingUrlExtraction(false);
+      setIsLoadingUrlExtraction(false); // URL extraction done
       await performFullAnalysis(extractedInfo.productDescription || "Product from URL", undefined);
     } catch (error) {
       console.error("Error extracting from URL or analyzing:", error);
       toast({ title: "URL Analysis Failed", description: "Could not process the URL.", variant: "destructive" });
       setIsLoadingUrlExtraction(false);
-      setIsLoadingAnalysis(false);
+      // Main analysis loading is handled internally by performFullAnalysis
     }
   };
   
@@ -233,8 +264,11 @@ export default function EcoAssessPage() {
     ]);
   };
   
-  const LoadingSkeleton = () => (
+  const LoadingSkeleton = ({ title = "Loading Analysis..."}: {title?: string}) => (
     <Card className="shadow-lg mt-8">
+      <CardHeader>
+          <CardTitle>{title}</CardTitle>
+      </CardHeader>
       <CardContent className="p-6 space-y-4">
         <Skeleton className="h-8 w-3/4" />
         <Skeleton className="h-4 w-1/2" />
@@ -283,8 +317,12 @@ export default function EcoAssessPage() {
     setInputMethod(value as "describe" | "url");
     setAnalysisResult(null);
     setAlternativesResult(null);
+    setInsightsResult(null);
     setProductUrl(""); 
   }
+  
+  const isProcessingSingleProduct = isLoadingMainAnalysis || isLoadingUrlExtraction || isLoadingInsights || isLoadingAlternatives;
+
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -310,7 +348,10 @@ export default function EcoAssessPage() {
                     </TabsList>
 
                     <TabsContent value="describe" className="mt-6">
-                      <ProductInputForm onSubmit={handleAnalyzeDescriptionImage} isLoading={isLoadingAnalysis || isLoadingAlternatives} />
+                      <ProductInputForm 
+                        onSubmit={handleAnalyzeDescriptionImage} 
+                        isLoading={isProcessingSingleProduct} 
+                      />
                     </TabsContent>
 
                     <TabsContent value="url" className="mt-6">
@@ -328,14 +369,15 @@ export default function EcoAssessPage() {
                               placeholder="https://www.example.com/product-page" 
                               value={productUrl}
                               onChange={(e) => setProductUrl(e.target.value)} 
+                              disabled={isProcessingSingleProduct}
                             />
                           </div>
                           <Button 
                             onClick={handleAnalyzeUrl} 
-                            disabled={isLoadingUrlExtraction || isLoadingAnalysis || !productUrl}
+                            disabled={isProcessingSingleProduct || !productUrl}
                             className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
                           >
-                            {(isLoadingUrlExtraction || isLoadingAnalysis) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            {(isLoadingUrlExtraction || isLoadingMainAnalysis) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                             Fetch & Analyze URL
                           </Button>
                         </CardContent>
@@ -357,6 +399,7 @@ export default function EcoAssessPage() {
                         id={pref.id} 
                         checked={selectedPreferences.includes(pref.label)}
                         onCheckedChange={() => handlePreferenceChange(pref.label)}
+                        disabled={isProcessingSingleProduct}
                       />
                       <Label htmlFor={pref.id} className="font-normal cursor-pointer">{pref.label}</Label>
                     </div>
@@ -364,12 +407,18 @@ export default function EcoAssessPage() {
                 </CardContent>
               </Card>
 
-              {(isLoadingAnalysis || isLoadingUrlExtraction) && <LoadingSkeleton />}
-              {analysisResult && !isLoadingAnalysis && !isLoadingUrlExtraction && (
+              {(isLoadingMainAnalysis || isLoadingUrlExtraction) && !analysisResult && <LoadingSkeleton title="Analyzing Product..."/>}
+              {analysisResult && (
                 <div className="mt-8"><AnalysisDisplay analysis={analysisResult} /></div>
               )}
-              {isLoadingAlternatives && !isLoadingAnalysis && !isLoadingUrlExtraction && <LoadingSkeleton />}
-              {alternativesResult && !isLoadingAlternatives && !isLoadingAnalysis && !isLoadingUrlExtraction && (
+              
+              {isLoadingInsights && !insightsResult && analysisResult && <LoadingSkeleton title="Generating Insights..."/>}
+              {insightsResult && (
+                <div className="mt-8"><ProductInsightsDisplay insights={insightsResult} /></div>
+              )}
+
+              {isLoadingAlternatives && !alternativesResult && analysisResult && <LoadingSkeleton title="Suggesting Alternatives..."/>}
+              {alternativesResult && (
                 <div className="mt-8"><AlternativesDisplay alternatives={alternativesResult} /></div>
               )}
             </TabsContent>
@@ -393,7 +442,7 @@ export default function EcoAssessPage() {
                         }} 
                         isLoading={isLoadingProduct1 && product1InputMethod === 'describe'} 
                         formId="product1-form-describe"
-                        submitButtonText="Use Details for Product 1"
+                        submitButtonText="Set Details for Product 1"
                       />
                     </TabsContent>
                     <TabsContent value="url" className="mt-4">
@@ -407,12 +456,13 @@ export default function EcoAssessPage() {
                             placeholder="https://example.com/product1" 
                             value={product1Url}
                             onChange={(e) => setProduct1Url(e.target.value)} 
+                            disabled={isLoadingProduct1 || isLoadingProduct2}
                           />
-                          <Button className="w-full" onClick={() => {
-                            setProduct1InputDesc(null); // Clear describe form if using URL
-                            toast({ title: "Product 1 URL Set"});
-                          }} disabled={!product1Url || product1InputMethod !== 'url'}>
-                            Use this URL for Product 1
+                           <Button className="w-full" onClick={() => {
+                            setProduct1InputDesc(null); 
+                            if(product1Url) toast({ title: "Product 1 URL Set"}); else toast({title: "Product 1 URL Cleared/Empty", variant: "default"});
+                          }} disabled={isLoadingProduct1 || isLoadingProduct2 || product1InputMethod !== 'url'}>
+                            {product1Url ? "Confirm Product 1 URL" : "Clear Product 1 URL"}
                           </Button>
                         </CardContent>
                       </Card>
@@ -437,7 +487,7 @@ export default function EcoAssessPage() {
                         }} 
                         isLoading={isLoadingProduct2 && product2InputMethod === 'describe'}
                         formId="product2-form-describe"
-                        submitButtonText="Use Details for Product 2"
+                        submitButtonText="Set Details for Product 2"
                       />
                     </TabsContent>
                     <TabsContent value="url" className="mt-4">
@@ -451,12 +501,13 @@ export default function EcoAssessPage() {
                             placeholder="https://example.com/product2" 
                             value={product2Url}
                             onChange={(e) => setProduct2Url(e.target.value)} 
+                            disabled={isLoadingProduct1 || isLoadingProduct2}
                           />
                           <Button className="w-full" onClick={() => {
                             setProduct2InputDesc(null);
-                            toast({ title: "Product 2 URL Set"});
-                          }} disabled={!product2Url || product2InputMethod !== 'url'}>
-                            Use this URL for Product 2
+                            if(product2Url) toast({ title: "Product 2 URL Set"}); else toast({title: "Product 2 URL Cleared/Empty", variant: "default"});
+                          }} disabled={isLoadingProduct1 || isLoadingProduct2 || product2InputMethod !== 'url'}>
+                             {product2Url ? "Confirm Product 2 URL" : "Clear Product 2 URL"}
                           </Button>
                         </CardContent>
                       </Card>
@@ -473,7 +524,7 @@ export default function EcoAssessPage() {
                 {(isLoadingProduct1 || isLoadingProduct2 || isLoadingProduct1UrlExtraction || isLoadingProduct2UrlExtraction) && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
                 Compare Products
               </Button>
-              {(isLoadingProduct1 || isLoadingProduct2 || isLoadingProduct1UrlExtraction || isLoadingProduct2UrlExtraction) && !(analysisResult1 && analysisResult2) && <LoadingSkeleton />}
+              {(isLoadingProduct1 || isLoadingProduct2 || isLoadingProduct1UrlExtraction || isLoadingProduct2UrlExtraction) && !(analysisResult1 && analysisResult2) && <LoadingSkeleton title="Comparing Products..." />}
               
               {(analysisResult1 || analysisResult2) && !(isLoadingProduct1 || isLoadingProduct2 || isLoadingProduct1UrlExtraction || isLoadingProduct2UrlExtraction) &&
                 <div className="mt-8">
@@ -481,7 +532,7 @@ export default function EcoAssessPage() {
                     analysis1={analysisResult1} 
                     productName1={product1Name}
                     analysis2={analysisResult2} 
-                    productName2={product2Name}
+                    productName2={productName2}
                   />
                 </div>
               }
@@ -499,4 +550,3 @@ export default function EcoAssessPage() {
     </div>
   );
 }
-

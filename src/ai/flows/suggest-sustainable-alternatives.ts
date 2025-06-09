@@ -81,4 +81,3 @@ const suggestSustainableAlternativesFlow = ai.defineFlow(
     return output!;
   }
 );
-
