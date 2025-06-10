@@ -2,7 +2,8 @@
 'use server';
 /**
  * @fileOverview A flow that analyzes a product description and optionally an image,
- * returning a detailed analysis of its environmental impact, including specific categories and an overall score.
+ * returning a detailed analysis of its environmental impact, including specific categories, an overall score,
+ * and an analysis of its ingredients.
  *
  * - analyzeProductDescription - A function that handles the product description and image analysis process.
  * - AnalyzeProductDescriptionInput - The input type for the analyzeProductDescription function.
@@ -11,10 +12,10 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { AnalyzeProductDescriptionOutputSchema } from '../schemas/product-analysis-schemas';
+import { AnalyzeProductDescriptionOutputSchema, IngredientDetailSchema } from '../schemas/product-analysis-schemas';
 
 const AnalyzeProductDescriptionInputSchema = z.object({
-  productDescription: z.string().describe('The description of the product to analyze. This could be user-provided text, or text extracted from a URL or other source.'),
+  productDescription: z.string().describe('The description of the product to analyze. This could be user-provided text, or text extracted from a URL or other source. This is the PRIMARY source for ingredient information.'),
   imageDataUri: z.string().optional().describe("An image of the product, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
 });
 export type AnalyzeProductDescriptionInput = z.infer<typeof AnalyzeProductDescriptionInputSchema>;
@@ -56,6 +57,10 @@ Provide your analysis strictly in the following JSON structured format, adhering
     *   **recyclability**:
         *   **analysis**: Provide a detailed textual analysis of the product's end-of-life options. Assess its design for disassembly and recyclability. Are materials easily separable and commonly recycled? Mention compatibility with existing recycling infrastructure. Discuss compostability or biodegradability if applicable, and the likely impact of landfilling if that is the primary disposal route.
         *   **impactLevel**: Estimate the recyclability/end-of-life impact as 'low' (highly recyclable/beneficial end-of-life), 'medium', 'high' (problematic disposal, low recyclability), or 'unknown'. If 'unknown', clearly state why.
+    *   **ingredientAnalysis**:
+        *   **identifiedIngredients**: If the product description explicitly lists ingredients, attempt to extract them. For each ingredient, provide its 'name'. Assess potential 'healthHazards' (e.g., skin irritant, allergen) and 'environmentalImpact' (e.g., non-biodegradable, aquatic toxicity) based *only* on information deducible from the product description and general knowledge. Set 'assessment' to 'Generally Safe', 'Use with Caution', 'Potential Concern', or 'Unknown'. If no ingredients are listed or identifiable from the description, this array should be empty or omitted. Do NOT invent ingredients.
+        *   **overallIngredientSummary**: Provide a general summary of the product's ingredient profile. Discuss any notable positive or negative aspects, potential health considerations, and overall environmental implications related to the ingredients. If no ingredients were identified, state "No specific ingredients were identified from the product description."
+        *   **ingredientImpactLevel**: Estimate the overall impact of the ingredients as 'low', 'medium', 'high', or 'unknown'. Base this on the collective assessment of identified ingredients or the general nature of the product type if ingredients aren't listed. If unknown, explain why.
 5.  **overallSustainabilityScore**: Assign a numerical score from 0 (very unsustainable) to 100 (highly sustainable). This score must be a thoughtful aggregation of your comprehensive analysis across all detailed categories, reflecting a balanced, evidence-based assessment. Justify how you arrived at this score implicitly through your detailed analyses.
 
 Strive for thoroughness and specificity in your textual analysis for each section. Your goal is to provide an actionable and informative assessment. Ensure your entire response strictly adheres to the JSON schema provided for the output.
@@ -73,3 +78,4 @@ const analyzeProductDescriptionFlow = ai.defineFlow(
     return output!;
   }
 );
+
