@@ -29,7 +29,7 @@ const SuggestSustainableAlternativesOutputSchema = z.object({
   alternatives: z
     .array(z.string())
     .describe('A list of more sustainable alternative products (at least three if possible).'),
-  reasoning: z.string().describe('The reasoning behind the suggested alternatives, explaining how they are more sustainable and how they align with user preferences if provided.'),
+  reasoning: z.string().describe('The reasoning behind the suggested alternatives, explaining how they are more sustainable and how they align with user preferences if provided. This reasoning MUST clearly connect each suggestion to the user\'s stated preferences if any were given.'),
 });
 export type SuggestSustainableAlternativesOutput = z.infer<
   typeof SuggestSustainableAlternativesOutputSchema
@@ -56,17 +56,19 @@ const prompt = ai.definePrompt({
   {{#each sustainabilityPreferences}}
   - {{{this}}}
   {{/each}}
-  Prioritize suggestions that align with these preferences. When providing reasoning, explicitly mention how the alternatives meet these preferences.
+  **Crucially, prioritize suggestions that directly align with these preferences.** 
+  Your 'reasoning' MUST explicitly detail how each alternative product meets these specific preferences. For example, if the user prefers "Recycled Materials", your reasoning should clearly state how the suggested alternatives incorporate recycled content.
   {{else}}
-  The user has not specified any particular sustainability preferences. Provide general sustainable alternatives.
+  The user has not specified any particular sustainability preferences. Provide general sustainable alternatives and explain their broad benefits.
   {{/if}}
 
   Suggest at least three sustainable alternatives. For each alternative, briefly explain why it is more sustainable than the original product.
   Consider factors like materials, production processes, lifecycle, and end-of-life options.
-  If the original product has a high score (e.g., > 70), acknowledge this and suggest alternatives that might be even better or comparable in different aspects.
+  If the original product has a high score (e.g., > 70), acknowledge this and suggest alternatives that might be even better or comparable in different aspects, again linking to preferences if provided.
   
-  Format your response strictly as a JSON object with "alternatives" (an array of strings) and "reasoning" (a string summarizing why these alternatives are good choices, potentially referencing the preferences) fields.
-  Example reasoning: "These alternatives focus on [key sustainable aspect like recycled materials or lower emissions]. Product X uses organic cotton, reducing pesticide use. Product Y is made locally, minimizing transport carbon. Product Z is designed for easy disassembly and recycling."
+  Format your response strictly as a JSON object with "alternatives" (an array of strings) and "reasoning" (a string). 
+  Example reasoning (if preferences like 'low carbon' and 'recycled materials' were given): "These alternatives are chosen to align with your preferences for a lower carbon footprint and use of recycled materials. Product X uses organic cotton, significantly reducing pesticide use and emissions from synthetic fertilizer production. Product Y is made locally with 70% recycled plastic, minimizing transport carbon and virgin material use. Product Z is designed for easy disassembly and recycling, supporting a circular economy and aligning with your recyclability preference (if stated)."
+  If no preferences were stated, the reasoning might be: "These alternatives offer broad sustainability benefits. Product X uses organic cotton... Product Y is made locally... Product Z is designed for disassembly..."
 `,
 });
 
