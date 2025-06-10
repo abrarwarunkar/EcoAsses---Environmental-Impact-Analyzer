@@ -128,6 +128,7 @@ export default function EcoAssessPage() {
         const insightsData = await generateProductInsights({
           productQuery: description, 
           analysisResult: analysisData,
+          sustainabilityPreferences: selectedPreferences,
         });
         setInsightsResult(insightsData);
         toast({ title: "Insights Generated", description: "Additional tips and insights are ready." });
@@ -390,7 +391,7 @@ export default function EcoAssessPage() {
               <Card className="mt-8 shadow-lg">
                 <CardHeader>
                   <CardTitle className="font-headline text-xl">Sustainability Preferences (Optional)</CardTitle>
-                  <CardDescription>Select aspects you care about most for alternative suggestions.</CardDescription>
+                  <CardDescription>Select aspects you care about most to get more tailored alternative suggestions and insights.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {sustainabilityPreferenceOptions.map(pref => (
@@ -532,7 +533,7 @@ export default function EcoAssessPage() {
                     analysis1={analysisResult1} 
                     productName1={product1Name}
                     analysis2={analysisResult2} 
-                    productName2={product2Name}
+                    product2Name={product2Name}
                   />
                 </div>
               }
