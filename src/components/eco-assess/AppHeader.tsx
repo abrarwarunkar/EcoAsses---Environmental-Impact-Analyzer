@@ -15,13 +15,14 @@ export default function AppHeader() {
             alt="EcoAssess Logo"
             // IMPORTANT: Replace these width and height values with the ACTUAL intrinsic dimensions of your logo file.
             // For example, if your logo is 150px wide and 40px tall, use width={150} height={40}.
+            // I'm using placeholder values here.
             width={150} 
             height={40}
             // This style will make the image display at 32px tall, and the width will adjust to maintain aspect ratio.
             style={{ height: '32px', width: 'auto' }} 
             className="group-hover:opacity-80 transition-opacity"
             // Consider adding 'priority' if this logo is critical for Largest Contentful Paint (LCP)
-            // priority 
+            priority 
           />
           <h1 className="text-3xl font-headline font-bold text-primary group-hover:text-primary/80 transition-colors">
             EcoAssess
