@@ -11,12 +11,11 @@ export default function AppHeader() {
       <div className="container mx-auto flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 group">
           <Image
-            src="https://placehold.co/40x40.png"
+            src="/ecoassess-logo.png" // Updated path to the logo in the public directory
             alt="EcoAssess Logo"
-            width={32}
+            width={32} // You might want to adjust width/height based on the actual logo dimensions
             height={32}
             className="group-hover:opacity-80 transition-opacity"
-            data-ai-hint="logo brand"
           />
           <h1 className="text-3xl font-headline font-bold text-primary group-hover:text-primary/80 transition-colors">
             EcoAssess
