@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import * as z from "zod";
-import AppHeader from "@/components/eco-assess/AppHeader";
+import AppHeader from "../../../eco-assess/components/eco-assess/AppHeader";
 import ProductInputForm, { ProductDescImageInputFormValues } from "@/components/eco-assess/ProductInputForm";
 import AnalysisDisplay from "@/components/eco-assess/AnalysisDisplay";
 import AlternativesDisplay from "@/components/eco-assess/AlternativesDisplay";
@@ -19,14 +19,14 @@ import { generateProductInsights, GenerateProductInsightsOutput } from "@/ai/flo
 
 
 import { useToast } from "@/hooks/use-toast";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "../../../eco-assess/components/ui/skeleton";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../../eco-assess/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../eco-assess/components/ui/tabs";
+import { Checkbox } from "../../../eco-assess/components/ui/checkbox";
+import { Label } from "../../../eco-assess/components/ui/label";
+import { Button } from "../../../eco-assess/components/ui/button";
+import { Input } from "../../../eco-assess/components/ui/input";
+import { Alert, AlertTitle, AlertDescription } from "../../../eco-assess/components/ui/alert";
 import { Loader2, Info, Link as LinkIcon } from "lucide-react";
 
 

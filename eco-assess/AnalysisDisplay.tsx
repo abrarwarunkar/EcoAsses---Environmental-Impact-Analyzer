@@ -1,10 +1,10 @@
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./components/ui/card";
+import { Progress } from "./components/ui/progress";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./components/ui/accordion";
 import { FileText, MountainSnow, ShieldAlert, Cloud, Waves, Leaf, Recycle, AlertTriangle, CheckCircle2, MinusCircle, Info, FlaskConical, Biohazard } from "lucide-react";
 import type { AnalyzeProductDescriptionOutput, IngredientDetail } from "@/ai/schemas/product-analysis-schemas"; // Updated import
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "./components/ui/badge";
 
 type AnalysisDisplayProps = {
   analysis: AnalyzeProductDescriptionOutput;

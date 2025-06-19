@@ -1,7 +1,7 @@
 
 import type { AnalyzeProductDescriptionOutput } from "@/ai/flows/analyze-product-description";
 import AnalysisDisplay from "@/components/eco-assess/AnalysisDisplay";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Scale } from "lucide-react";
 
 type ComparisonDisplayProps = {

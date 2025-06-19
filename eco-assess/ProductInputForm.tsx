@@ -4,7 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, Controller } from "react-hook-form";
 import * as z from "zod";
-import { Button } from "@/components/ui/button";
+import { Button } from "./components/ui/button";
 import {
   Form,
   FormControl,
@@ -12,10 +12,10 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+} from "./components/ui/form";
+import { Textarea } from "./components/ui/textarea";
+import { Input } from "./components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./components/ui/card";
 import { Loader2, ImagePlus, XCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import Image from 'next/image';

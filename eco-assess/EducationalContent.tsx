@@ -1,5 +1,5 @@
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./components/ui/card";
 import { Lightbulb, Recycle, Zap, Droplets, Globe } from "lucide-react";
 
 const educationalTopics = [

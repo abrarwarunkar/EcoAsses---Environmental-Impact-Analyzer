@@ -1,5 +1,5 @@
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./components/ui/card";
+import { Badge } from "./components/ui/badge";
 import { Sparkles, Lightbulb } from "lucide-react";
 
 type AlternativesDisplayProps = {

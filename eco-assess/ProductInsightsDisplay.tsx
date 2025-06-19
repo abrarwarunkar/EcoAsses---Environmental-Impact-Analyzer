@@ -1,5 +1,5 @@
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./components/ui/card";
 import { Lightbulb, ThumbsUp, CheckSquare, Sparkles } from "lucide-react";
 import type { GenerateProductInsightsOutput } from "@/ai/flows/generate-product-insights";
 

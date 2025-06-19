@@ -3,8 +3,8 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "../ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { CheckCircle, Lightbulb, BarChart3, Recycle, Search, Link2, ImageIcon, Users, Brain, BookOpen, ArrowRight } from "lucide-react";
 
 const features = [
