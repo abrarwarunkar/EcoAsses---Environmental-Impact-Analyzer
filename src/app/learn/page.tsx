@@ -1,5 +1,5 @@
 
-import AppHeader from "../../../eco-assess/components/eco-assess/AppHeader";
+import AppHeader from "@/components/eco-assess/AppHeader";
 import EducationalContent from "@/components/eco-assess/EducationalContent";
 
 export default function LearnPage() {

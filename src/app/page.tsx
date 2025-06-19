@@ -1,6 +1,6 @@
 
-import AppHeader from "../../eco-assess/components/eco-assess/AppHeader";
-import LandingPageContent from "../../eco-assess/components/eco-assess/LandingPageContent";
+import AppHeader from "@/components/eco-assess/AppHeader";
+import LandingPageContent from "@/components/eco-assess/LandingPageContent";
 
 export default function HomePage() {
   return (
