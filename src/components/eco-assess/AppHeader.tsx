@@ -11,11 +11,13 @@ export default function AppHeader() {
       <div className="container mx-auto flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 group">
           <Image
-            src="/ecoassess-logo.png" // Updated path to the logo in the public directory
+            src="/ecoassess-logo.png"
             alt="EcoAssess Logo"
-            width={32} // You might want to adjust width/height based on the actual logo dimensions
-            height={32}
+            width={32} // IMPORTANT: Replace 32 with your logo's actual intrinsic width in pixels
+            height={32} // IMPORTANT: Replace 32 with your logo's actual intrinsic height in pixels
+            style={{ height: '32px', width: 'auto' }} // Displays the image 32px tall, width adjusts to maintain aspect ratio
             className="group-hover:opacity-80 transition-opacity"
+            priority // Optional: if the logo is critical for LCP, consider adding priority
           />
           <h1 className="text-3xl font-headline font-bold text-primary group-hover:text-primary/80 transition-colors">
             EcoAssess

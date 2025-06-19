@@ -11,7 +11,7 @@ export default function AppHeader() {
       <div className="container mx-auto flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 group">
           <Image
-            src="https://placehold.co/40x40.png"
+            src="ecoasses.png"
             alt="EcoAssess Logo"
             width={32}
             height={32}
