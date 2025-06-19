@@ -153,7 +153,7 @@ export default function LandingPageContent() {
             </div>
             <div className="rounded-lg overflow-hidden shadow-xl">
               <Image 
-                src="https://placehold.co/600x400.png" 
+                src="https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxzdXN0YWluYWJpbGl0eXxlbnwwfHx8fDE3NTAyNjkyMjR8MA&ixlib=rb-4.1.0&q=80&w=1080" 
                 alt="Sustainable choices illustration" 
                 width={600} 
                 height={400} 
