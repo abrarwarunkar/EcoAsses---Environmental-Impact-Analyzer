@@ -16,19 +16,32 @@ type ComparisonDisplayProps = {
 export default function ComparisonDisplay({ analysis1, productName1, analysis2, productName2 }: ComparisonDisplayProps) {
   
   let comparisonSummaryText = "Awaiting analysis for both products to provide a comparison summary.";
+  let score1Display = <span className="text-3xl font-bold text-primary">{analysis1?.overallSustainabilityScore ?? "N/A"}</span>;
+  let score2Display = <span className="text-3xl font-bold text-primary">{analysis2?.overallSustainabilityScore ?? "N/A"}</span>;
+
   if (analysis1 && analysis2) {
-    if (analysis1.overallSustainabilityScore > analysis2.overallSustainabilityScore) {
+    const scoreA = analysis1.overallSustainabilityScore;
+    const scoreB = analysis2.overallSustainabilityScore;
+
+    if (scoreA > scoreB) {
       comparisonSummaryText = `${productName1 || "Product 1"} appears to be more sustainable overall.`;
-    } else if (analysis2.overallSustainabilityScore > analysis1.overallSustainabilityScore) {
+      score1Display = <span className="text-3xl font-bold text-green-600 flex items-center justify-center">{scoreA} <TrendingUp className="ml-1 h-6 w-6"/></span>;
+      score2Display = <span className="text-3xl font-bold text-red-600 flex items-center justify-center">{scoreB} <TrendingDown className="ml-1 h-6 w-6"/></span>;
+    } else if (scoreB > scoreA) {
       comparisonSummaryText = `${productName2 || "Product 2"} appears to be more sustainable overall.`;
+      score1Display = <span className="text-3xl font-bold text-red-600 flex items-center justify-center">{scoreA} <TrendingDown className="ml-1 h-6 w-6"/></span>;
+      score2Display = <span className="text-3xl font-bold text-green-600 flex items-center justify-center">{scoreB} <TrendingUp className="ml-1 h-6 w-6"/></span>;
     } else {
       comparisonSummaryText = "Both products have similar overall sustainability scores based on the analysis.";
+      score1Display = <span className="text-3xl font-bold text-yellow-600 flex items-center justify-center">{scoreA} <Minus className="ml-1 h-6 w-6"/></span>;
+      score2Display = <span className="text-3xl font-bold text-yellow-600 flex items-center justify-center">{scoreB} <Minus className="ml-1 h-6 w-6"/></span>;
     }
   } else if (analysis1) {
     comparisonSummaryText = `Awaiting analysis for ${productName2 || "Product 2"} to compare.`;
   } else if (analysis2) {
     comparisonSummaryText = `Awaiting analysis for ${productName1 || "Product 1"} to compare.`;
   }
+
 
   const comparisonAspects = [
     { name: "Carbon Footprint", path1: analysis1?.detailedAnalysis.carbonFootprint, path2: analysis2?.detailedAnalysis.carbonFootprint },
@@ -53,11 +66,11 @@ export default function ComparisonDisplay({ analysis1, productName1, analysis2, 
             <div className="grid grid-cols-2 gap-4 mb-4 text-center">
               <div>
                 <p className="text-sm text-muted-foreground">{productName1 || "Product 1"} Score</p>
-                <p className="text-3xl font-bold text-primary">{analysis1?.overallSustainabilityScore ?? "N/A"}</p>
+                {score1Display}
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">{productName2 || "Product 2"} Score</p>
-                <p className="text-3xl font-bold text-primary">{analysis2?.overallSustainabilityScore ?? "N/A"}</p>
+                {score2Display}
               </div>
             </div>
             <p className="text-center text-muted-foreground italic mb-4">{comparisonSummaryText}</p>
@@ -126,3 +139,5 @@ export default function ComparisonDisplay({ analysis1, productName1, analysis2, 
     </Card>
   );
 }
+
+    

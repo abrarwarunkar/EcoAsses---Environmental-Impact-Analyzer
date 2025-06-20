@@ -73,13 +73,10 @@ export default function AnalysisDisplay({ analysis }: AnalysisDisplayProps) {
       const canvas = await html2canvas(analysisReportRef.current, {
         scale: 2, 
         useCORS: true,
-        logging: process.env.NODE_ENV === "development", // Enable logging only in dev
+        logging: process.env.NODE_ENV === "development", 
         
-        // Attempt to improve text rendering if default is blurry
         onclone: (document) => {
-            // You can try to apply specific styles to the cloned document if needed
-            // For example, to ensure fonts are loaded or to force certain rendering modes
-            // This is advanced and might not always be necessary or effective
+            // This space can be used to apply specific styles to the cloned document if needed for PDF rendering
         }
       });
       const imgData = canvas.toDataURL('image/png');
@@ -94,21 +91,19 @@ export default function AnalysisDisplay({ analysis }: AnalysisDisplayProps) {
       const imgWidth = canvas.width;
       const imgHeight = canvas.height;
       
-      // Calculate the ratio to fit the image within the PDF page, maintaining aspect ratio
       const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
       
       const newImgWidth = imgWidth * ratio;
       const newImgHeight = imgHeight * ratio;
 
-      // Center the image on the page (optional)
       const imgX = (pdfWidth - newImgWidth) / 2;
-      const imgY = 0; // Start from top, or add margin like (pdfHeight - newImgHeight) / 2 for vertical centering
+      const imgY = 0; 
 
       pdf.addImage(imgData, 'PNG', imgX, imgY, newImgWidth, newImgHeight);
       pdf.save('ecoassess_report.pdf');
     } catch (error) {
       console.error("Error generating PDF:", error);
-      // Ideally, show a toast to the user here
+      // Consider adding a user-facing toast notification for PDF generation errors
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -142,7 +137,7 @@ export default function AnalysisDisplay({ analysis }: AnalysisDisplayProps) {
             </div>
         </div>
       </CardHeader>
-      <div ref={analysisReportRef}> {/* This div wraps all content that should be in the PDF */}
+      <div ref={analysisReportRef}> 
         <CardContent className="space-y-6">
             <div className="space-y-2">
             <h3 className="font-semibold text-lg">Impact Score</h3>
@@ -241,7 +236,9 @@ export default function AnalysisDisplay({ analysis }: AnalysisDisplayProps) {
             </Accordion>
             </div>
         </CardContent>
-      </div> {/* End of analysisReportRef div */}
+      </div> 
     </Card>
   );
 }
+
+    
