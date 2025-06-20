@@ -20,8 +20,14 @@ EcoAssess is a powerful AI-powered web tool designed to help users evaluate the 
 - **📚 Educational Content**  
   Offers users learning resources to encourage environmentally responsible behavior.
 
-- **🔁 Product Comparison (Planned)**  
-  Side-by-side comparison of products based on sustainability metrics *(Coming Soon)*
+- **🔁 Product Comparison Dashboard**  
+  Side-by-side comparison of products based on sustainability metrics.
+
+- **📄 PDF/CSV Report Generation**  
+  Export sustainability insights for offline use or sharing.
+
+- **📈 Sustainability Scores and Visualizations**  
+  Graphical representation of environmental impact for better understanding.
 
 ## 🧠 Tech Stack
 
@@ -78,13 +84,7 @@ EcoAssess/
 
 In a world of excessive consumerism, it's hard to know what's sustainable and what's not. EcoAssess bridges this gap by offering **data-driven, AI-powered insights** to make sustainability **simple and accessible**.
 
-## 📌 Upcoming Improvements
 
-- 🟢 Authentication & User Profiles  
-- 🟢 Product Comparison Dashboard  
-- 🟢 PDF/CSV Report Generation  
-- 🟢 Improved AI Summarization with GPT-style models  
-- 🟢 Sustainability Scores and Visualizations  
 
 ## 🤝 Contributing
 
